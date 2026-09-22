@@ -581,17 +581,27 @@ const auth = getAuth(fbApp);
     notifPrompted: "acero_founders_notif_prompted_v1",
     pushConfirmed: "acero_founders_push_confirmed_v1",
     seeded: "acero_founders_seeded_v1",
+    cacheTeam: "acero_founders_cache_team_v1",
+    cacheMeetings: "acero_founders_cache_meetings_v1",
+    cacheSchedule: "acero_founders_cache_schedule_v1",
+    cacheLog: "acero_founders_cache_log_v1",
   };
 
   function cryptoId() { return Math.random().toString(36).slice(2, 10); }
 
-  let TEAM = [];
-  let MEETINGS = [];
-  let SCHEDULE = [];
-  let log = [];
+  function loadCached(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; }
+  }
+  let TEAM = loadCached(KEYS.cacheTeam);
+  let MEETINGS = loadCached(KEYS.cacheMeetings);
+  let SCHEDULE = loadCached(KEYS.cacheSchedule);
+  let log = loadCached(KEYS.cacheLog);
   let currentUser = localStorage.getItem(KEYS.user);
+  // Paint immediately with whatever we last saw, synchronously, before any Firebase
+  // work starts — this is what actually prevents the empty-screen flash on reload.
+  // renderAll() is defined further below but hoisted, so this call is valid here.
+  if (currentUser) renderAll();
   let activeTab = "master";
-  let firestoreReady = false;
 
   // ---- Firestore collections ----
   const col = {
@@ -622,10 +632,10 @@ const auth = getAuth(fbApp);
   }
 
   function startListeners() {
-    onSnapshot(col.team, (snap) => { TEAM = snap.docs.map(withId); if (firestoreReady) renderAll(); });
-    onSnapshot(col.meetings, (snap) => { MEETINGS = snap.docs.map(withId); if (firestoreReady) renderAll(); });
-    onSnapshot(col.schedule, (snap) => { SCHEDULE = snap.docs.map(withId); if (firestoreReady) renderAll(); });
-    onSnapshot(col.log, (snap) => { log = snap.docs.map(withId); if (firestoreReady) renderAll(); });
+    onSnapshot(col.team, (snap) => { TEAM = snap.docs.map(withId); localStorage.setItem(KEYS.cacheTeam, JSON.stringify(TEAM)); renderAll(); });
+    onSnapshot(col.meetings, (snap) => { MEETINGS = snap.docs.map(withId); localStorage.setItem(KEYS.cacheMeetings, JSON.stringify(MEETINGS)); renderAll(); });
+    onSnapshot(col.schedule, (snap) => { SCHEDULE = snap.docs.map(withId); localStorage.setItem(KEYS.cacheSchedule, JSON.stringify(SCHEDULE)); renderAll(); });
+    onSnapshot(col.log, (snap) => { log = snap.docs.map(withId); localStorage.setItem(KEYS.cacheLog, JSON.stringify(log)); renderAll(); });
   }
 
   function personById(id) { return TEAM.find(p => p.id === id); }
@@ -1155,7 +1165,6 @@ const auth = getAuth(fbApp);
       }
       try { await seedIfEmpty(); } catch (e) { console.warn("Seed check failed:", e); }
       startListeners();
-      firestoreReady = true;
       renderAll();
       if (currentUser) registerPush();
     });
