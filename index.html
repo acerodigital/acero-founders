@@ -580,6 +580,7 @@ const auth = getAuth(fbApp);
     user: "acero_founders_user_v1",
     notifPrompted: "acero_founders_notif_prompted_v1",
     pushConfirmed: "acero_founders_push_confirmed_v1",
+    seeded: "acero_founders_seeded_v1",
   };
 
   function cryptoId() { return Math.random().toString(36).slice(2, 10); }
@@ -604,18 +605,20 @@ const auth = getAuth(fbApp);
   function withId(docSnap) { return { id: docSnap.id, ...docSnap.data() }; }
 
   async function seedIfEmpty() {
-    const teamSnap = await getDocs(col.team);
+    if (localStorage.getItem(KEYS.seeded) === "true") return; // already confirmed once — skip 3 reads on every future load
+    const [teamSnap, meetSnap, schedSnap] = await Promise.all([
+      getDocs(col.team), getDocs(col.meetings), getDocs(col.schedule),
+    ]);
     if (teamSnap.empty) {
       for (const p of DEFAULT_TEAM) await setDoc(doc(col.team, p.id), { name: p.name, owner: p.owner, roles: p.roles, companies: p.companies });
     }
-    const meetSnap = await getDocs(col.meetings);
     if (meetSnap.empty) {
       for (const m of DEFAULT_MEETINGS) await setDoc(doc(col.meetings, m.id), { day: m.day, time: m.time, title: m.title });
     }
-    const schedSnap = await getDocs(col.schedule);
     if (schedSnap.empty) {
       for (const s of DEFAULT_SCHEDULE) await setDoc(doc(col.schedule, s.id), { day: s.day, person: s.person, company: s.company, focus: s.focus });
     }
+    localStorage.setItem(KEYS.seeded, "true");
   }
 
   function startListeners() {
@@ -1142,13 +1145,14 @@ const auth = getAuth(fbApp);
     if ("serviceWorker" in navigator) {
       try { swRegistration = await navigator.serviceWorker.register("./service-worker.js"); } catch (e) {}
     }
-    try {
-      await signInAnonymously(auth);
-    } catch (e) {
-      console.error("Firebase sign-in failed:", e);
-    }
+    // Don't block on a fresh network sign-in every load — Firebase Auth restores an
+    // existing persisted session locally (fast, no network) and fires this immediately
+    // if one exists. Only fall through to signInAnonymously() when there's truly no session yet.
     onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+      if (!user) {
+        try { await signInAnonymously(auth); } catch (e) { console.error("Firebase sign-in failed:", e); }
+        return; // signing in triggers this callback again with the new user
+      }
       try { await seedIfEmpty(); } catch (e) { console.warn("Seed check failed:", e); }
       startListeners();
       firestoreReady = true;
