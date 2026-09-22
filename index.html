@@ -504,7 +504,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
+  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc,
   getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -522,10 +522,11 @@ const fbApp = initializeApp(firebaseConfig);
 let db;
 try {
   db = initializeFirestore(fbApp, {
-    localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 } catch (e) {
   console.warn("Persistent Firestore cache unavailable, falling back:", e && e.message);
+  window.__firestorePersistenceFallback = (e && e.message) || "unknown error";
   db = getFirestore(fbApp);
 }
 const auth = getAuth(fbApp);
@@ -578,6 +579,7 @@ const auth = getAuth(fbApp);
   const KEYS = {
     user: "acero_founders_user_v1",
     notifPrompted: "acero_founders_notif_prompted_v1",
+    pushConfirmed: "acero_founders_push_confirmed_v1",
   };
 
   function cryptoId() { return Math.random().toString(36).slice(2, 10); }
@@ -1119,7 +1121,10 @@ const auth = getAuth(fbApp);
         await setDoc(doc(col.devices, token), {
           owner: currentUser, token, updatedAt: serverTimestamp(), userAgent: navigator.userAgent,
         });
-        showDebugToast("Push notifications ready ✓ (token saved)", false);
+        if (localStorage.getItem(KEYS.pushConfirmed) !== "true") {
+          localStorage.setItem(KEYS.pushConfirmed, "true");
+          showDebugToast("Push notifications ready ✓ (token saved)", false);
+        }
       } else {
         showDebugToast("Push setup: getToken() returned empty.", true);
       }
@@ -1131,6 +1136,9 @@ const auth = getAuth(fbApp);
 
   // ---- App startup ----
   async function startApp() {
+    if (window.__firestorePersistenceFallback) {
+      showDebugToast("Note: offline cache unavailable (" + window.__firestorePersistenceFallback + "). Data will still work, refreshes just won't be instant.", true);
+    }
     if ("serviceWorker" in navigator) {
       try { swRegistration = await navigator.serviceWorker.register("./service-worker.js"); } catch (e) {}
     }
