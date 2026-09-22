@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Acero Founders</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0B0E14" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0E14;
+    --surface: #12161F;
+    --surface-raised: #1A2033;
+    --border: #232B3D;
+    --blue: #3D6BFF;
+    --blue-deep: #1E4FD6;
+    --gold: #C9A227;
+    --text: #F2F4F8;
+    --text-muted: #8993A8;
+    --text-faint: #5C6478;
+    --pending: #E2574C;
+    --received: #2FAE6B;
+    --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  h1, h2, h3, .display {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  #app { max-width: 560px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+
+  /* ---- Identity gate ---- */
+  #gate {
+    position: fixed; inset: 0; background: radial-gradient(circle at 50% 20%, #17203a 0%, #0B0E14 65%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px; z-index: 50; text-align: center;
+  }
+  #gate img { width: 88px; height: 88px; margin-bottom: 22px; border-radius: 20px; }
+  #gate h1 { font-size: 26px; margin: 0 0 6px; }
+  #gate p { color: var(--text-muted); margin: 0 0 28px; font-size: 15px; }
+  .gate-options { display: flex; gap: 14px; width: 100%; max-width: 340px; }
+  .gate-btn {
+    flex: 1; background: var(--surface-raised); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius); padding: 20px 10px; font-size: 17px;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600; cursor: pointer;
+  }
+  .gate-btn:active { border-color: var(--blue); background: #1E2740; }
+
+  /* ---- Header ---- */
+  header.topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(11,14,20,0.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 20px 14px;
+  }
+  .topbar-row { display: flex; align-items: center; justify-content: space-between; }
+  .brand-mark { display: flex; align-items: center; gap: 10px; }
+  .brand-mark img { width: 30px; height: 30px; border-radius: 8px; }
+  .brand-mark span { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 16px; }
+  .avatar-btn {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--blue-deep);
+    border: none; color: #fff; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    font-size: 13px; cursor: pointer;
+  }
+  .topbar h1 { font-size: 21px; margin: 14px 0 2px; }
+  .topbar .subline { color: var(--text-muted); font-size: 13.5px; }
+
+  /* ---- Main / tabs ---- */
+  main { flex: 1; padding: 18px 20px 100px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  section.block { margin-bottom: 28px; }
+  section.block h2 { font-size: 15px; color: var(--text-muted); font-weight: 600; margin: 0 0 12px; }
+
+  .company-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; margin: 0 -20px 18px; padding-left: 20px; padding-right: 20px; }
+  .company-card {
+    flex: 0 0 auto; min-width: 138px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; position: relative; overflow: hidden;
+  }
+  .company-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--company-color, var(--blue)); }
+  .company-card .name { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  .company-card .count { font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; }
+  .company-card .label { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+
+  .check-item {
+    display: flex; align-items: center; gap: 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
+  }
+  .check-item .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--company-color, var(--blue)); flex-shrink: 0; }
+  .check-item .meta { flex: 1; min-width: 0; }
+  .check-item .who { font-size: 16px; font-weight: 600; }
+  .check-item .focus { font-size: 14px; color: var(--text-muted); margin-top: 2px; }
+  .check-item .tag { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+  .status-pill {
+    font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 20px; white-space: nowrap; border: none; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .status-pill.pending { background: rgba(226,87,76,0.15); color: var(--pending); }
+  .status-pill.received { background: rgba(47,174,107,0.15); color: var(--received); }
+
+  .meeting-item {
+    display: flex; gap: 14px; align-items: center; padding: 14px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px;
+  }
+  .meeting-time { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; color: var(--gold); min-width: 68px; }
+  .meeting-item .title { font-size: 15.5px; font-weight: 600; }
+  .meeting-item .day { font-size: 13px; color: var(--text-muted); }
+
+  .day-group { margin-bottom: 18px; }
+  .day-label { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; padding-left: 2px; }
+
+  .person-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 12px;
+  }
+  .person-card .top-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .person-avatar {
+    width: 42px; height: 42px; border-radius: 12px; background: var(--surface-raised);
+    display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 16px; color: var(--blue); border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .person-card .name { font-size: 17px; font-weight: 600; }
+  .person-card .owner-tag { font-size: 12.5px; color: var(--text-faint); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+  .chip { font-size: 12px; padding: 5px 10px; border-radius: 20px; background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border); }
+  .role-list { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin: 0; padding-left: 18px; }
+
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 18px; }
+  .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .form-row label { font-size: 12.5px; color: var(--text-muted); }
+  .form-row select, .form-row input, .form-row textarea {
+    background: var(--surface-raised); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: 'Inter', sans-serif;
+  }
+  .form-row textarea { resize: vertical; min-height: 60px; }
+  .primary-btn {
+    width: 100%; background: var(--blue-deep); color: #fff; border: none; border-radius: 10px;
+    padding: 13px; font-size: 15px; font-weight: 600; font-family: 'Space Grotesk', sans-serif; cursor: pointer;
+  }
+  .primary-btn:active { background: #17399e; }
+  .link-btn { background: none; border: none; color: var(--blue); font-size: 14px; font-weight: 600; padding: 4px 0; cursor: pointer; }
+
+  .log-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .log-item:last-child { border-bottom: none; }
+  .log-date { font-size: 12.5px; color: var(--text-faint); min-width: 52px; padding-top: 2px; }
+  .log-body { flex: 1; }
+  .log-body .headline { font-size: 15px; font-weight: 600; }
+  .log-body .note { font-size: 13.5px; color: var(--text-muted); margin-top: 3px; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 14.5px; }
+
+  /* ---- Bottom nav ---- */
+  nav.tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: rgba(18,22,31,0.96); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    padding: 8px max(env(safe-area-inset-left,0px),0px) calc(8px + env(safe-area-inset-bottom, 0px));
+    display: flex; justify-content: center;
+  }
+  .tabbar-inner { display: flex; width: 100%; max-width: 560px; }
+  .tab-btn {
+    flex: 1; background: none; border: none; color: var(--text-faint); display: flex; flex-direction: column;
+    align-items: center; gap: 4px; padding: 6px 2px; font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer;
+  }
+  .tab-btn svg { width: 22px; height: 22px; }
+  .tab-btn.active { color: var(--blue); }
+  .tab-btn.active svg { stroke: var(--blue); }
+
+  ::-webkit-scrollbar { display: none; }
+
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-head h2 { margin: 0; }
+  .hidden { display: none !important; }
+  .checkbox-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checkbox-pill {
+    display: flex; align-items: center; gap: 6px; background: var(--surface-raised);
+    border: 1px solid var(--border); border-radius: 20px; padding: 8px 12px; font-size: 13px;
+    color: var(--text-muted); cursor: pointer;
+  }
+  .checkbox-pill input { accent-color: var(--blue-deep); }
+  .card-actions { display: flex; gap: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .card-actions button { background: none; border: none; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+  .card-actions .edit-btn { color: var(--blue); }
+  .card-actions .delete-btn { color: var(--pending); }
+  .card-actions .delete-btn.armed, .item-actions .delete-btn.armed {
+    color: #fff; background: var(--pending); padding: 4px 10px; border-radius: 8px;
+  }
+
+  /* ---- Modal (works regardless of active tab) ---- */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 40;
+    background: rgba(6,8,13,0.72); backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0; padding: 20px 20px calc(24px + env(safe-area-inset-bottom,0px));
+    width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto;
+  }
+  @media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal-card { border-radius: 20px; max-height: 80vh; }
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .modal-head h3 { margin: 0; font-size: 18px; }
+  .modal-close { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-muted); width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; line-height: 1; }
+  .item-row { position: relative; }
+  .item-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .item-actions button { background: none; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 2px 0; }
+  .item-actions .edit-btn { color: var(--blue); }
+  .item-actions .delete-btn { color: var(--pending); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="gate">
+    <img src="icons/icon-192.png" alt="Acero Founders" />
+    <h1>Acero Founders</h1>
+    <p>Who's opening the app?</p>
+    <div class="gate-options">
+      <button class="gate-btn" data-user="kabir">Kabir</button>
+      <button class="gate-btn" data-user="uzair">Uzair</button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand-mark">
+        <img src="icons/icon-192.png" alt="" />
+        <span>ACERO FOUNDERS</span>
+      </div>
+      <button class="avatar-btn" id="avatarBtn">K</button>
+    </div>
+    <h1 id="pageTitle">Master Dashboard</h1>
+    <div class="subline" id="pageSubline">Everything, across all three companies</div>
+  </header>
+
+  <main>
+
+    <!-- MASTER DASHBOARD -->
+    <section class="tab-panel active" id="tab-master">
+      <div class="block">
+        <div class="company-row" id="companySummary"></div>
+      </div>
+      <section class="block">
+        <h2>Today's check-ins</h2>
+        <div id="masterToday"></div>
+      </section>
+      <section class="block">
+        <h2>This week's meetings</h2>
+        <div id="masterMeetings"></div>
+      </section>
+    </section>
+
+    <!-- MY DASHBOARD -->
+    <section class="tab-panel" id="tab-mine">
+      <section class="block">
+        <h2>Your people</h2>
+        <div id="minePeople"></div>
+      </section>
+      <section class="block">
+        <h2>Your check-ins this week</h2>
+        <div id="mineChecks"></div>
+      </section>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="tab-panel" id="tab-schedule">
+      <section class="block">
+        <div class="section-head">
+          <h2>Weekly meetings</h2>
+          <button class="link-btn" id="toggleMeetingForm">+ Add meeting</button>
+        </div>
+        <div class="form-card hidden" id="meetingForm">
+          <input type="hidden" id="meetingEditId" />
+          <div class="form-row">
+            <label>Day</label>
+            <select id="meetingDay">
+              <option>Mon</option><option>Tue</option><option>Wed</option><option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Time</label>
+            <input id="meetingTime" type="text" placeholder="e.g. 10:00 AM" />
+          </div>
+          <div class="form-row">
+            <label>Title</label>
+            <input id="meetingTitle" type="text" placeholder="e.g. AD Weekly Sync" />
+          </div>
+          <button class="primary-btn" id="meetingSaveBtn">Save meeting</button>
+        </div>
+        <div id="scheduleMeetings"></div>
+      </section>
+      <section class="block">
+        <div class="section-head">
+          <h2>Check-in rotation</h2>
+          <button class="link-btn" id="toggleCheckForm">+ Add check-in</button>
+        </div>
+        <div class="form-card hidden" id="checkForm">
+          <input type="hidden" id="checkEditId" />
+          <div class="form-row">
+            <label>Day</label>
+            <select id="checkDay">
+              <option>Mon</option><option>Tue</option><option>Wed</option><option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Team member</label>
+            <select id="checkPerson"></select>
+          </div>
+          <div class="form-row">
+            <label>Company</label>
+            <select id="checkCompany"></select>
+          </div>
+          <div class="form-row">
+            <label>Focus / what to ask about</label>
+            <input id="checkFocus" type="text" placeholder="e.g. LinkedIn prospecting update" />
+          </div>
+          <button class="primary-btn" id="checkSaveBtn">Save check-in</button>
+        </div>
+        <div id="scheduleWeek"></div>
+      </section>
+    </section>
+
+    <!-- TASK LOG -->
+    <section class="tab-panel" id="tab-log">
+      <section class="block">
+        <div class="form-card">
+          <div class="form-row">
+            <label>Team member</label>
+            <select id="logPerson"></select>
+          </div>
+          <div class="form-row">
+            <label>Focus / update requested</label>
+            <input id="logFocus" type="text" placeholder="e.g. AI video batch for AH" />
+          </div>
+          <div class="form-row">
+            <label>Note (optional)</label>
+            <textarea id="logNote" placeholder="Anything to remember about this ask"></textarea>
+          </div>
+          <button class="primary-btn" id="logAddBtn">Log a check-in</button>
+        </div>
+      </section>
+      <section class="block">
+        <h2>History</h2>
+        <div id="logHistory"></div>
+      </section>
+    </section>
+
+    <!-- TEAM SNAPSHOT -->
+    <section class="tab-panel" id="tab-team">
+      <section class="block">
+        <div class="section-head">
+          <h2>Team members</h2>
+          <button class="link-btn" id="toggleTeamForm">+ Add person</button>
+        </div>
+        <div id="teamCards"></div>
+      </section>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <div class="tabbar-inner">
+      <button class="tab-btn active" data-tab="master">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Master
+      </button>
+      <button class="tab-btn" data-tab="mine">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.8 4.3-5.8 7.5-5.8s6.1 2 7.5 5.8"/></svg>
+        Mine
+      </button>
+      <button class="tab-btn" data-tab="schedule">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
+        Schedule
+      </button>
+      <button class="tab-btn" data-tab="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z"/><path d="M9 10h7M9 14h7M9 18h4"/></svg>
+        Log
+      </button>
+      <button class="tab-btn" data-tab="team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8.5" cy="8" r="3"/><circle cx="16" cy="9.5" r="2.4"/><path d="M3 20c.8-3.4 3-5.2 5.5-5.2s4.7 1.8 5.5 5.2M14.8 14.8c2.6.2 4.3 1.8 5 4.6"/></svg>
+        Team
+      </button>
+    </div>
+  </nav>
+
+  <div class="modal-overlay" id="teamModalOverlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="teamFormHeading">Add team member</h3>
+        <button class="modal-close" id="teamFormClose" aria-label="Close">&times;</button>
+      </div>
+      <div id="teamForm">
+        <input type="hidden" id="teamEditId" />
+        <div class="form-row">
+          <label>Name</label>
+          <input id="teamName" type="text" placeholder="e.g. Sara Ahmed" />
+        </div>
+        <div class="form-row">
+          <label>Owned by</label>
+          <select id="teamOwner">
+            <option value="kabir">Kabir</option>
+            <option value="uzair">Uzair</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Companies</label>
+          <div class="checkbox-row" id="teamCompanies">
+            <label class="checkbox-pill"><input type="checkbox" value="AD" /> Acero Digital</label>
+            <label class="checkbox-pill"><input type="checkbox" value="AH" /> Acero Healthcare</label>
+            <label class="checkbox-pill"><input type="checkbox" value="KAI" /> Kai Learning</label>
+            <label class="checkbox-pill"><input type="checkbox" value="Clients" /> Clients</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Responsibilities (one per line)</label>
+          <textarea id="teamRoles" placeholder="AI Video Generation&#10;LinkedIn Prospecting"></textarea>
+        </div>
+        <button class="primary-btn" id="teamSaveBtn">Save team member</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const COMPANIES = {
+    AD:  { name: "Acero Digital",  color: "#3D6BFF" },
+    AH:  { name: "Acero Healthcare", color: "#2FAE6B" },
+    KAI: { name: "Kai Learning School", color: "#C9A227" },
+  };
+
+  // ---- Default seed data (used only the very first time the app runs) ----
+  const DEFAULT_TEAM = [
+    { id: "muaaz", name: "Muaaz Shahzad", owner: "kabir",
+      roles: ["AI Video Generation", "Video Editing", "LinkedIn Prospecting"],
+      companies: ["KAI", "AD", "AH"] },
+    { id: "rafay", name: "Rafay Minhas", owner: "uzair",
+      roles: ["Email Marketing", "AI Video Generation", "LinkedIn Prospecting"],
+      companies: ["AD", "AH"] },
+    { id: "omer", name: "Omer Khawaja", owner: "uzair",
+      roles: ["Website Development", "Website Maintenance"],
+      companies: ["AD", "AH", "Clients"] },
+    { id: "abzaar", name: "Abzaar Shafqat", owner: "kabir",
+      roles: ["Social Media Management (FB/IG/LinkedIn)", "LinkedIn Prospecting"],
+      companies: ["KAI", "AD", "AH"] },
+  ];
+  const DEFAULT_MEETINGS = [
+    { id: "m1", day: "Mon", time: "10:00 AM", title: "AD Weekly Sync" },
+    { id: "m2", day: "Wed", time: "3:00 PM",  title: "AH Ops Review" },
+    { id: "m3", day: "Thu", time: "11:00 AM", title: "Kai Learning School Content Review" },
+    { id: "m4", day: "Fri", time: "5:00 PM",  title: "Founders Check-in" },
+  ];
+  const DEFAULT_SCHEDULE = [
+    { id: "s1", day: "Mon", person: "muaaz",  company: "KAI", focus: "AI video generation update" },
+    { id: "s2", day: "Mon", person: "rafay",  company: "AH",  focus: "Email marketing update" },
+    { id: "s3", day: "Tue", person: "abzaar", company: "AD",  focus: "Social media performance" },
+    { id: "s4", day: "Tue", person: "omer",   company: "AD",  focus: "Website development status" },
+    { id: "s5", day: "Wed", person: "muaaz",  company: "AH",  focus: "LinkedIn prospecting update" },
+    { id: "s6", day: "Wed", person: "rafay",  company: "AD",  focus: "AI video generation update" },
+    { id: "s7", day: "Thu", person: "abzaar", company: "KAI", focus: "LinkedIn prospecting update" },
+    { id: "s8", day: "Thu", person: "omer",   company: "Clients", focus: "Website maintenance status" },
+    { id: "s9", day: "Fri", person: "muaaz",  company: "AD",  focus: "Video editing status" },
+    { id: "s10", day: "Fri", person: "rafay", company: "AH",  focus: "LinkedIn prospecting update" },
+  ];
+
+  const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const todayIdx = new Date().getDay(); // 0 Sun ... 6 Sat
+  const todayLabel = DAYS[(todayIdx + 6) % 7] || null;
+
+  const KEYS = {
+    log: "acero_founders_log_v1",
+    user: "acero_founders_user_v1",
+    team: "acero_founders_team_v1",
+    meetings: "acero_founders_meetings_v1",
+    schedule: "acero_founders_schedule_v1",
+  };
+
+  function cryptoId() { return Math.random().toString(36).slice(2, 10); }
+
+  // ---- Generic storage helpers ----
+  // NOTE: these are the only functions Stage 2 needs to swap for Firestore calls —
+  // everything above and below reads/writes through TEAM/MEETINGS/SCHEDULE/log in memory.
+  function loadList(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function saveList(key, list) { localStorage.setItem(key, JSON.stringify(list)); }
+
+  function seedLog() {
+    const now = new Date();
+    const fmt = (d) => d.toISOString().slice(5,10);
+    const y = new Date(now); y.setDate(now.getDate() - 2);
+    const y2 = new Date(now); y2.setDate(now.getDate() - 4);
+    return [
+      { id: cryptoId(), date: fmt(y2), person: "omer", company: "AD", focus: "Homepage redesign status", note: "Waiting on final copy", status: "received" },
+      { id: cryptoId(), date: fmt(y), person: "abzaar", company: "AH", focus: "Instagram reel performance", note: "", status: "pending" },
+    ];
+  }
+
+  let TEAM = loadList(KEYS.team, DEFAULT_TEAM);
+  let MEETINGS = loadList(KEYS.meetings, DEFAULT_MEETINGS);
+  let SCHEDULE = loadList(KEYS.schedule, DEFAULT_SCHEDULE);
+  let log = loadList(KEYS.log, null) || seedLog();
+  let currentUser = localStorage.getItem(KEYS.user);
+  let activeTab = "master";
+
+  function saveTeam() { saveList(KEYS.team, TEAM); }
+  function saveMeetings() { saveList(KEYS.meetings, MEETINGS); }
+  function saveSchedule() { saveList(KEYS.schedule, SCHEDULE); }
+  function saveLog() { saveList(KEYS.log, log); }
+
+  function personById(id) { return TEAM.find(p => p.id === id); }
+
+  // Native confirm()/alert() dialogs are blocked in sandboxed preview environments,
+  // so deletes use a tap-twice pattern instead: first tap arms it, second tap (within 2.5s) confirms.
+  function armDelete(btn, onConfirm) {
+    if (btn.dataset.armed === "true") {
+      onConfirm();
+      return;
+    }
+    btn.dataset.armed = "true";
+    const original = btn.textContent;
+    btn.textContent = "Tap again to confirm";
+    btn.classList.add("armed");
+    btn._armTimeout = setTimeout(() => {
+      btn.dataset.armed = "false";
+      btn.textContent = original;
+      btn.classList.remove("armed");
+    }, 2500);
+  }
+
+  // ---- Identity gate ----
+  const gate = document.getElementById("gate");
+  const avatarBtn = document.getElementById("avatarBtn");
+  function setUser(u) {
+    currentUser = u;
+    localStorage.setItem(KEYS.user, u);
+    avatarBtn.textContent = u === "kabir" ? "K" : "U";
+    gate.style.display = "none";
+    renderAll();
+  }
+  document.querySelectorAll(".gate-btn").forEach(btn => {
+    btn.addEventListener("click", () => setUser(btn.dataset.user));
+  });
+  avatarBtn.addEventListener("click", () => { gate.style.display = "flex"; });
+  if (currentUser) { avatarBtn.textContent = currentUser === "kabir" ? "K" : "U"; gate.style.display = "none"; }
+
+  // ---- Tabs ----
+  const titles = {
+    master: ["Master Dashboard", "Everything, across all three companies"],
+    mine: ["My Dashboard", "Your people, your check-ins"],
+    schedule: ["Schedule", "Meetings and the weekly check-in rotation"],
+    log: ["Task Log", "Every ask, tracked to a close"],
+    team: ["Team Snapshot", "Who does what, for which company"],
+  };
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b === btn));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + activeTab));
+      document.getElementById("pageTitle").textContent = titles[activeTab][0];
+      document.getElementById("pageSubline").textContent = titles[activeTab][1];
+      window.scrollTo(0,0);
+    });
+  });
+
+  // ---- Renderers ----
+  function companyChip(code) {
+    const c = COMPANIES[code] || { name: code, color: "#8993A8" };
+    return `<span class="chip" style="border-color:${c.color}55;color:${c.color}">${c.name}</span>`;
+  }
+
+  function renderCompanySummary() {
+    const el = document.getElementById("companySummary");
+    el.innerHTML = Object.entries(COMPANIES).map(([code, c]) => {
+      const pendingCount = log.filter(l => l.company === code && l.status === "pending").length;
+      return `<div class="company-card" style="--company-color:${c.color}">
+        <div class="name">${c.name}</div>
+        <div class="count">${pendingCount}</div>
+        <div class="label">pending update${pendingCount === 1 ? "" : "s"}</div>
+      </div>`;
+    }).join("");
+  }
+
+  function checkItemHTML(item, opts = {}) {
+    const person = personById(item.person);
+    const c = COMPANIES[item.company] || { color: "#8993A8", name: item.company };
+    const actions = opts.editable ? `
+      <div class="item-actions">
+        <button class="edit-btn" data-edit-check="${item.id}">Edit</button>
+        <button class="delete-btn" data-del-check="${item.id}">Delete</button>
+      </div>` : "";
+    return `<div class="check-item item-row" style="--company-color:${c.color}">
+      <div class="dot"></div>
+      <div class="meta">
+        <div class="who">${person ? person.name : item.person}</div>
+        <div class="focus">${item.focus}</div>
+        <div class="tag">${c.name}${item.day ? " · " + item.day : ""}</div>
+        ${actions}
+      </div>
+    </div>`;
+  }
+
+  function renderMasterToday() {
+    const el = document.getElementById("masterToday");
+    const items = todayLabel ? SCHEDULE.filter(s => s.day === todayLabel) : [];
+    el.innerHTML = items.length
+      ? items.map(i => checkItemHTML(i)).join("")
+      : `<div class="empty-state">No check-ins scheduled today — enjoy the quiet.</div>`;
+  }
+
+  function renderMasterMeetings() {
+    const el = document.getElementById("masterMeetings");
+    el.innerHTML = MEETINGS.map(m => `
+      <div class="meeting-item">
+        <div class="meeting-time">${m.time}</div>
+        <div>
+          <div class="title">${m.title}</div>
+          <div class="day">${m.day}</div>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderMine() {
+    const mine = TEAM.filter(p => p.owner === currentUser);
+    const peopleEl = document.getElementById("minePeople");
+    peopleEl.innerHTML = mine.length
+      ? mine.map(p => personCardHTML(p)).join("")
+      : `<div class="empty-state">No one's assigned to you yet — add team members in the Team tab.</div>`;
+    peopleEl.querySelectorAll("[data-edit-team]").forEach(btn => btn.addEventListener("click", () => openTeamForm(btn.dataset.editTeam)));
+    peopleEl.querySelectorAll("[data-del-team]").forEach(btn => btn.addEventListener("click", () => {
+      armDelete(btn, () => {
+        TEAM = TEAM.filter(p => p.id !== btn.dataset.delTeam);
+        saveTeam(); renderAll();
+      });
+    }));
+
+    const checksEl = document.getElementById("mineChecks");
+    const ids = mine.map(p => p.id);
+    const items = SCHEDULE.filter(s => ids.includes(s.person));
+    const grouped = DAYS.map(d => ({ day: d, items: items.filter(i => i.day === d) })).filter(g => g.items.length);
+    checksEl.innerHTML = grouped.map(g => `
+      <div class="day-group">
+        <div class="day-label">${g.day}${g.day === todayLabel ? " · Today" : ""}</div>
+        ${g.items.map(i => checkItemHTML(i)).join("")}
+      </div>`).join("");
+  }
+
+  function personCardHTML(p, opts = {}) {
+    const editable = opts.editable !== false;
+    const initials = p.name.split(" ").map(w => w[0]).join("").slice(0,2);
+    return `<div class="person-card">
+      <div class="top-row">
+        <div class="person-avatar">${initials}</div>
+        <div>
+          <div class="name">${p.name}</div>
+          <div class="owner-tag">${p.owner === "kabir" ? "Kabir's" : "Uzair's"}</div>
+        </div>
+      </div>
+      <div class="chip-row">${p.companies.map(companyChip).join("")}</div>
+      <ul class="role-list">${p.roles.map(r => `<li>${r}</li>`).join("")}</ul>
+      ${editable ? `<div class="card-actions">
+        <button class="edit-btn" data-edit-team="${p.id}">Edit</button>
+        <button class="delete-btn" data-del-team="${p.id}">Delete</button>
+      </div>` : ""}
+    </div>`;
+  }
+
+  function meetingItemHTML(m) {
+    return `<div class="meeting-item item-row">
+      <div class="meeting-time">${m.time}</div>
+      <div style="flex:1">
+        <div class="title">${m.title}</div>
+        <div class="day">${m.day}</div>
+        <div class="item-actions">
+          <button class="edit-btn" data-edit-meeting="${m.id}">Edit</button>
+          <button class="delete-btn" data-del-meeting="${m.id}">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function renderSchedule() {
+    document.getElementById("scheduleMeetings").innerHTML = MEETINGS.length
+      ? MEETINGS.map(meetingItemHTML).join("")
+      : `<div class="empty-state">No meetings yet — add your first one above.</div>`;
+
+    const el = document.getElementById("scheduleWeek");
+    const groups = DAYS.map(d => ({ day: d, items: SCHEDULE.filter(s => s.day === d) })).filter(g => g.items.length);
+    el.innerHTML = groups.length ? groups.map(g => `<div class="day-group">
+        <div class="day-label">${g.day}${g.day === todayLabel ? " · Today" : ""}</div>
+        ${g.items.map(i => checkItemHTML(i, { editable: true })).join("")}
+      </div>`).join("") : `<div class="empty-state">No check-ins scheduled yet — add the first one above.</div>`;
+
+    bindScheduleActions();
+  }
+
+  function bindScheduleActions() {
+    document.querySelectorAll("[data-edit-meeting]").forEach(btn => btn.addEventListener("click", () => openMeetingForm(btn.dataset.editMeeting)));
+    document.querySelectorAll("[data-del-meeting]").forEach(btn => btn.addEventListener("click", () => {
+      armDelete(btn, () => {
+        MEETINGS = MEETINGS.filter(m => m.id !== btn.dataset.delMeeting);
+        saveMeetings(); renderAll();
+      });
+    }));
+    document.querySelectorAll("[data-edit-check]").forEach(btn => btn.addEventListener("click", () => openCheckForm(btn.dataset.editCheck)));
+    document.querySelectorAll("[data-del-check]").forEach(btn => btn.addEventListener("click", () => {
+      armDelete(btn, () => {
+        SCHEDULE = SCHEDULE.filter(s => s.id !== btn.dataset.delCheck);
+        saveSchedule(); renderAll();
+      });
+    }));
+  }
+
+  function renderTeam() {
+    const teamCardsEl = document.getElementById("teamCards");
+    teamCardsEl.innerHTML = TEAM.length
+      ? TEAM.map(p => personCardHTML(p)).join("")
+      : `<div class="empty-state">No team members yet — add your first one above.</div>`;
+    teamCardsEl.querySelectorAll("[data-edit-team]").forEach(btn => btn.addEventListener("click", () => openTeamForm(btn.dataset.editTeam)));
+    teamCardsEl.querySelectorAll("[data-del-team]").forEach(btn => btn.addEventListener("click", () => {
+      armDelete(btn, () => {
+        TEAM = TEAM.filter(p => p.id !== btn.dataset.delTeam);
+        saveTeam(); renderAll();
+      });
+    }));
+  }
+
+  // ---- Team member form (modal — works from any tab) ----
+  const teamModal = document.getElementById("teamModalOverlay");
+  document.getElementById("toggleTeamForm").addEventListener("click", () => openTeamForm(null));
+  document.getElementById("teamFormClose").addEventListener("click", closeTeamForm);
+  teamModal.addEventListener("click", (e) => { if (e.target === teamModal) closeTeamForm(); });
+  function closeTeamForm() { teamModal.classList.remove("open"); }
+  function openTeamForm(editId) {
+    teamModal.classList.add("open");
+    document.getElementById("teamFormHeading").textContent = editId ? "Edit team member" : "Add team member";
+    document.getElementById("teamEditId").value = editId || "";
+    const nameEl = document.getElementById("teamName");
+    const ownerEl = document.getElementById("teamOwner");
+    const rolesEl = document.getElementById("teamRoles");
+    const boxes = teamModal.querySelectorAll('#teamCompanies input[type="checkbox"]');
+    if (editId) {
+      const p = personById(editId);
+      nameEl.value = p.name; ownerEl.value = p.owner; rolesEl.value = p.roles.join("\n");
+      boxes.forEach(b => b.checked = p.companies.includes(b.value));
+    } else {
+      nameEl.value = ""; ownerEl.value = "kabir"; rolesEl.value = "";
+      boxes.forEach(b => b.checked = false);
+    }
+    nameEl.focus();
+  }
+  document.getElementById("teamSaveBtn").addEventListener("click", () => {
+    const editId = document.getElementById("teamEditId").value;
+    const name = document.getElementById("teamName").value.trim();
+    if (!name) { document.getElementById("teamName").focus(); return; }
+    const owner = document.getElementById("teamOwner").value;
+    const companies = [...teamModal.querySelectorAll('#teamCompanies input:checked')].map(b => b.value);
+    const roles = document.getElementById("teamRoles").value.split("\n").map(r => r.trim()).filter(Boolean);
+    if (editId) {
+      const p = personById(editId);
+      Object.assign(p, { name, owner, companies, roles });
+    } else {
+      TEAM.push({ id: cryptoId(), name, owner, companies, roles });
+    }
+    saveTeam();
+    closeTeamForm();
+    renderAll();
+  });
+
+  // ---- Meeting form ----
+  const meetingForm = document.getElementById("meetingForm");
+  document.getElementById("toggleMeetingForm").addEventListener("click", () => openMeetingForm(null));
+  function openMeetingForm(editId) {
+    meetingForm.classList.remove("hidden");
+    document.getElementById("meetingEditId").value = editId || "";
+    if (editId) {
+      const m = MEETINGS.find(x => x.id === editId);
+      document.getElementById("meetingDay").value = m.day;
+      document.getElementById("meetingTime").value = m.time;
+      document.getElementById("meetingTitle").value = m.title;
+    } else {
+      document.getElementById("meetingDay").value = "Mon";
+      document.getElementById("meetingTime").value = "";
+      document.getElementById("meetingTitle").value = "";
+    }
+    document.getElementById("meetingTitle").focus();
+  }
+  document.getElementById("meetingSaveBtn").addEventListener("click", () => {
+    const editId = document.getElementById("meetingEditId").value;
+    const day = document.getElementById("meetingDay").value;
+    const time = document.getElementById("meetingTime").value.trim();
+    const title = document.getElementById("meetingTitle").value.trim();
+    if (!title || !time) return;
+    if (editId) {
+      Object.assign(MEETINGS.find(m => m.id === editId), { day, time, title });
+    } else {
+      MEETINGS.push({ id: cryptoId(), day, time, title });
+    }
+    saveMeetings();
+    meetingForm.classList.add("hidden");
+    renderAll();
+  });
+
+  // ---- Check-in form ----
+  const checkForm = document.getElementById("checkForm");
+  document.getElementById("toggleCheckForm").addEventListener("click", () => openCheckForm(null));
+  function refreshCheckPersonOptions() {
+    const sel = document.getElementById("checkPerson");
+    sel.innerHTML = TEAM.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+  }
+  function refreshCheckCompanyOptions() {
+    const personId = document.getElementById("checkPerson").value;
+    const p = personById(personId);
+    const sel = document.getElementById("checkCompany");
+    const opts = p ? p.companies : Object.keys(COMPANIES);
+    sel.innerHTML = opts.map(code => `<option value="${code}">${(COMPANIES[code] || {name:code}).name}</option>`).join("");
+  }
+  document.getElementById("checkPerson").addEventListener("change", refreshCheckCompanyOptions);
+  function openCheckForm(editId) {
+    refreshCheckPersonOptions();
+    checkForm.classList.remove("hidden");
+    document.getElementById("checkEditId").value = editId || "";
+    if (editId) {
+      const s = SCHEDULE.find(x => x.id === editId);
+      document.getElementById("checkDay").value = s.day;
+      document.getElementById("checkPerson").value = s.person;
+      refreshCheckCompanyOptions();
+      document.getElementById("checkCompany").value = s.company;
+      document.getElementById("checkFocus").value = s.focus;
+    } else {
+      document.getElementById("checkDay").value = "Mon";
+      refreshCheckCompanyOptions();
+      document.getElementById("checkFocus").value = "";
+    }
+    document.getElementById("checkFocus").focus();
+  }
+  document.getElementById("checkSaveBtn").addEventListener("click", () => {
+    const editId = document.getElementById("checkEditId").value;
+    const day = document.getElementById("checkDay").value;
+    const person = document.getElementById("checkPerson").value;
+    const company = document.getElementById("checkCompany").value;
+    const focus = document.getElementById("checkFocus").value.trim();
+    if (!focus || !person) return;
+    if (editId) {
+      Object.assign(SCHEDULE.find(s => s.id === editId), { day, person, company, focus });
+    } else {
+      SCHEDULE.push({ id: cryptoId(), day, person, company, focus });
+    }
+    saveSchedule();
+    checkForm.classList.add("hidden");
+    renderAll();
+  });
+
+  function renderLogForm() {
+    const sel = document.getElementById("logPerson");
+    sel.innerHTML = TEAM.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+  }
+
+  function renderLogHistory() {
+    const el = document.getElementById("logHistory");
+    const sorted = [...log].sort((a,b) => b.date.localeCompare(a.date));
+    el.innerHTML = sorted.length ? sorted.map(item => {
+      const person = personById(item.person);
+      return `<div class="log-item">
+        <div class="log-date">${item.date}</div>
+        <div class="log-body">
+          <div class="headline">${person ? person.name : item.person} · ${item.focus}</div>
+          ${item.note ? `<div class="note">${item.note}</div>` : ""}
+          <div class="chip-row" style="margin-top:8px">
+            ${companyChip(item.company)}
+            <button class="status-pill ${item.status}" data-id="${item.id}">${item.status === "pending" ? "Pending — tap when received" : "Received"}</button>
+          </div>
+          <div class="item-actions">
+            <button class="delete-btn" data-del-log="${item.id}">Delete</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("") : `<div class="empty-state">No check-ins logged yet.</div>`;
+
+    el.querySelectorAll("[data-del-log]").forEach(btn => btn.addEventListener("click", () => {
+      armDelete(btn, () => {
+        log = log.filter(l => l.id !== btn.dataset.delLog);
+        saveLog(); renderAll();
+      });
+    }));
+
+    el.querySelectorAll(".status-pill").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = log.find(l => l.id === btn.dataset.id);
+        if (item) {
+          item.status = item.status === "pending" ? "received" : "pending";
+          saveLog();
+          renderAll();
+        }
+      });
+    });
+  }
+
+  document.getElementById("logAddBtn").addEventListener("click", () => {
+    const person = document.getElementById("logPerson").value;
+    const focus = document.getElementById("logFocus").value.trim();
+    const note = document.getElementById("logNote").value.trim();
+    if (!focus) { document.getElementById("logFocus").focus(); return; }
+    const p = personById(person);
+    const company = p ? p.companies[0] : "";
+    const now = new Date();
+    log.push({
+      id: cryptoId(),
+      date: now.toISOString().slice(5,10),
+      person, company, focus, note, status: "pending",
+    });
+    saveLog();
+    document.getElementById("logFocus").value = "";
+    document.getElementById("logNote").value = "";
+    renderAll();
+  });
+
+  function renderAll() {
+    renderCompanySummary();
+    renderMasterToday();
+    renderMasterMeetings();
+    renderMine();
+    renderSchedule();
+    renderTeam();
+    renderLogForm();
+    renderLogHistory();
+  }
+
+  renderAll();
+
+  // Service worker registration (safe no-op until deployed with a real sw.js on HTTPS)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
