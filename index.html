@@ -225,6 +225,45 @@
   .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .modal-head h3 { margin: 0; font-size: 18px; }
   .modal-close { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-muted); width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; line-height: 1; }
+
+  /* ---- Notification bell ---- */
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .bell-btn {
+    position: relative; width: 34px; height: 34px; border-radius: 50%;
+    background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .bell-btn svg { width: 18px; height: 18px; }
+  .bell-badge {
+    position: absolute; top: -4px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px;
+    border-radius: 10px; background: var(--pending); color: #fff; font-size: 10.5px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif;
+  }
+  .bell-panel-overlay {
+    display: none; position: fixed; inset: 0; z-index: 45;
+    background: rgba(6,8,13,0.6);
+  }
+  .bell-panel-overlay.open { display: block; }
+  .bell-panel {
+    position: absolute; top: calc(70px + env(safe-area-inset-top,0px)); right: 20px; left: 20px;
+    max-width: 420px; margin-left: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; max-height: 70vh; overflow-y: auto;
+  }
+  .bell-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .bell-panel-head h3 { margin: 0; font-size: 16px; }
+  .bell-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .bell-item:last-child { border-bottom: none; }
+  .bell-item .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--company-color, var(--blue)); flex-shrink: 0; }
+  .bell-item .meta { flex: 1; min-width: 0; }
+  .bell-item .who { font-size: 14.5px; font-weight: 600; }
+  .bell-item .focus { font-size: 13px; color: var(--text-muted); }
+  .bell-mark-btn {
+    font-size: 12px; font-weight: 600; color: var(--received); background: rgba(47,174,107,0.12);
+    border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  }
   .item-row { position: relative; }
   .item-actions { display: flex; gap: 10px; margin-top: 6px; }
   .item-actions button { background: none; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 2px 0; }
@@ -251,11 +290,27 @@
         <img src="icon-192.png" alt="" />
         <span>ACERO FOUNDERS</span>
       </div>
-      <button class="avatar-btn" id="avatarBtn">K</button>
+      <div class="topbar-actions">
+        <button class="bell-btn" id="bellBtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+          <span class="bell-badge hidden" id="bellBadge">0</span>
+        </button>
+        <button class="avatar-btn" id="avatarBtn">K</button>
+      </div>
     </div>
     <h1 id="pageTitle">Master Dashboard</h1>
     <div class="subline" id="pageSubline">Everything, across all three companies</div>
   </header>
+
+  <div class="bell-panel-overlay" id="bellPanelOverlay">
+    <div class="bell-panel">
+      <div class="bell-panel-head">
+        <h3>Pending check-ins</h3>
+        <button class="modal-close" id="bellPanelClose" aria-label="Close">&times;</button>
+      </div>
+      <div id="bellPanelList"></div>
+    </div>
+  </div>
 
   <main>
 
@@ -453,7 +508,7 @@ import {
   getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getMessaging, getToken, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js";
+import { getMessaging, getToken, onMessage, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const VAPID_KEY = "BLaQQ14vMwruSg_byZkzy--jQz8kfy5WhuwLevqamRERrasstDeK7eh6Gu5FqRy84LxJ0Guba60X9iMaZKGNzs8";
@@ -954,6 +1009,42 @@ const auth = getAuth(fbApp);
     } catch (e) { console.error("Log check-in failed:", e); }
   });
 
+  // ---- Notification bell ----
+  const bellPanelOverlay = document.getElementById("bellPanelOverlay");
+  document.getElementById("bellBtn").addEventListener("click", () => bellPanelOverlay.classList.add("open"));
+  document.getElementById("bellPanelClose").addEventListener("click", () => bellPanelOverlay.classList.remove("open"));
+  bellPanelOverlay.addEventListener("click", (e) => { if (e.target === bellPanelOverlay) bellPanelOverlay.classList.remove("open"); });
+
+  function renderBell() {
+    const mine = log.filter(l => l.status === "pending" && personById(l.person)?.owner === currentUser);
+    const badge = document.getElementById("bellBadge");
+    if (mine.length > 0) {
+      badge.textContent = mine.length > 9 ? "9+" : String(mine.length);
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+    const listEl = document.getElementById("bellPanelList");
+    listEl.innerHTML = mine.length ? mine.map(item => {
+      const person = personById(item.person);
+      const c = COMPANIES[item.company] || { color: "#8993A8" };
+      return `<div class="bell-item" style="--company-color:${c.color}">
+        <div class="dot"></div>
+        <div class="meta">
+          <div class="who">${person ? person.name : item.person}</div>
+          <div class="focus">${item.focus}</div>
+        </div>
+        <button class="bell-mark-btn" data-bell-received="${item.id}">Received</button>
+      </div>`;
+    }).join("") : `<div class="empty-state">Nothing pending — you're all caught up.</div>`;
+
+    listEl.querySelectorAll("[data-bell-received]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        updateDoc(doc(col.log, btn.dataset.bellReceived), { status: "received" }).catch(e => console.error(e));
+      });
+    });
+  }
+
   function renderAll() {
     renderCompanySummary();
     renderMasterToday();
@@ -963,6 +1054,7 @@ const auth = getAuth(fbApp);
     renderTeam();
     renderLogForm();
     renderLogHistory();
+    renderBell();
   }
 
   // ---- Push notifications ----
@@ -981,6 +1073,15 @@ const auth = getAuth(fbApp);
         if (perm !== "granted") return;
       }
       const messaging = getMessaging(fbApp);
+      onMessage(messaging, (payload) => {
+        const title = (payload.notification && payload.notification.title) || "Acero Founders";
+        const body = (payload.notification && payload.notification.body) || "";
+        if (swRegistration) {
+          swRegistration.showNotification(title, { body, icon: "./icon-192.png", badge: "./icon-192.png" });
+        } else if (Notification.permission === "granted") {
+          new Notification(title, { body, icon: "./icon-192.png" });
+        }
+      });
       const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
       if (token) {
         await setDoc(doc(col.devices, token), {
