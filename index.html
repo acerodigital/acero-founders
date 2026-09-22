@@ -639,7 +639,7 @@ const auth = getAuth(fbApp);
     avatarBtn.textContent = u === "kabir" ? "K" : "U";
     gate.style.display = "none";
     renderAll();
-    if (firestoreReady) registerPush();
+    registerPush();
   }
   document.querySelectorAll(".gate-btn").forEach(btn => {
     btn.addEventListener("click", () => setUser(btn.dataset.user));
