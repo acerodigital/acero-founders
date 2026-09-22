@@ -1,9 +1,7 @@
 // Acero Founders — service worker
-// Stage 1: basic offline shell caching.
-// Stage 2 (once Firebase is connected): push event handling will be added here
-// so scheduled check-in reminders arrive as real phone notifications.
+// Handles: offline shell caching + background push notifications (Firebase Cloud Messaging)
 
-const CACHE_NAME = "acero-founders-v1";
+const CACHE_NAME = "acero-founders-v2";
 const CORE_ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -28,5 +26,40 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// --- Placeholder for Stage 2 push handling ---
-// self.addEventListener("push", (event) => { ... show real notification ... });
+// --- Firebase Cloud Messaging (background push) ---
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
+
+firebase.initializeApp({
+  apiKey: "AIzaSyBM9X4Ev3T53D0Vsrp8CnJuDv0mlgcQHWA",
+  authDomain: "acero-founders.firebaseapp.com",
+  projectId: "acero-founders",
+  storageBucket: "acero-founders.firebasestorage.app",
+  messagingSenderId: "381028447110",
+  appId: "1:381028447110:web:ef05a489a0535d80aab207",
+});
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  const title = (payload.notification && payload.notification.title) || "Acero Founders";
+  const body = (payload.notification && payload.notification.body) || "You have a check-in reminder.";
+  self.registration.showNotification(title, {
+    body,
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    data: payload.data || {},
+  });
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("./");
+    })
+  );
+});

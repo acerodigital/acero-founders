@@ -446,7 +446,22 @@
 
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc,
+  getDocs, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getMessaging, getToken, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const VAPID_KEY = "BLaQQ14vMwruSg_byZkzy--jQz8kfy5WhuwLevqamRERrasstDeK7eh6Gu5FqRy84LxJ0Guba60X9iMaZKGNzs8";
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+
 (function () {
   const COMPANIES = {
     AD:  { name: "Acero Digital",  color: "#3D6BFF" },
@@ -493,48 +508,52 @@
   const todayLabel = DAYS[(todayIdx + 6) % 7] || null;
 
   const KEYS = {
-    log: "acero_founders_log_v1",
     user: "acero_founders_user_v1",
-    team: "acero_founders_team_v1",
-    meetings: "acero_founders_meetings_v1",
-    schedule: "acero_founders_schedule_v1",
+    notifPrompted: "acero_founders_notif_prompted_v1",
   };
 
   function cryptoId() { return Math.random().toString(36).slice(2, 10); }
 
-  // ---- Generic storage helpers ----
-  // NOTE: these are the only functions Stage 2 needs to swap for Firestore calls —
-  // everything above and below reads/writes through TEAM/MEETINGS/SCHEDULE/log in memory.
-  function loadList(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (e) { return fallback; }
-  }
-  function saveList(key, list) { localStorage.setItem(key, JSON.stringify(list)); }
-
-  function seedLog() {
-    const now = new Date();
-    const fmt = (d) => d.toISOString().slice(5,10);
-    const y = new Date(now); y.setDate(now.getDate() - 2);
-    const y2 = new Date(now); y2.setDate(now.getDate() - 4);
-    return [
-      { id: cryptoId(), date: fmt(y2), person: "omer", company: "AD", focus: "Homepage redesign status", note: "Waiting on final copy", status: "received" },
-      { id: cryptoId(), date: fmt(y), person: "abzaar", company: "AH", focus: "Instagram reel performance", note: "", status: "pending" },
-    ];
-  }
-
-  let TEAM = loadList(KEYS.team, DEFAULT_TEAM);
-  let MEETINGS = loadList(KEYS.meetings, DEFAULT_MEETINGS);
-  let SCHEDULE = loadList(KEYS.schedule, DEFAULT_SCHEDULE);
-  let log = loadList(KEYS.log, null) || seedLog();
+  let TEAM = [];
+  let MEETINGS = [];
+  let SCHEDULE = [];
+  let log = [];
   let currentUser = localStorage.getItem(KEYS.user);
   let activeTab = "master";
+  let firestoreReady = false;
 
-  function saveTeam() { saveList(KEYS.team, TEAM); }
-  function saveMeetings() { saveList(KEYS.meetings, MEETINGS); }
-  function saveSchedule() { saveList(KEYS.schedule, SCHEDULE); }
-  function saveLog() { saveList(KEYS.log, log); }
+  // ---- Firestore collections ----
+  const col = {
+    team: collection(db, "team"),
+    meetings: collection(db, "meetings"),
+    schedule: collection(db, "schedule"),
+    log: collection(db, "log"),
+    devices: collection(db, "devices"),
+  };
+
+  function withId(docSnap) { return { id: docSnap.id, ...docSnap.data() }; }
+
+  async function seedIfEmpty() {
+    const teamSnap = await getDocs(col.team);
+    if (teamSnap.empty) {
+      for (const p of DEFAULT_TEAM) await setDoc(doc(col.team, p.id), { name: p.name, owner: p.owner, roles: p.roles, companies: p.companies });
+    }
+    const meetSnap = await getDocs(col.meetings);
+    if (meetSnap.empty) {
+      for (const m of DEFAULT_MEETINGS) await setDoc(doc(col.meetings, m.id), { day: m.day, time: m.time, title: m.title });
+    }
+    const schedSnap = await getDocs(col.schedule);
+    if (schedSnap.empty) {
+      for (const s of DEFAULT_SCHEDULE) await setDoc(doc(col.schedule, s.id), { day: s.day, person: s.person, company: s.company, focus: s.focus });
+    }
+  }
+
+  function startListeners() {
+    onSnapshot(col.team, (snap) => { TEAM = snap.docs.map(withId); if (firestoreReady) renderAll(); });
+    onSnapshot(col.meetings, (snap) => { MEETINGS = snap.docs.map(withId); if (firestoreReady) renderAll(); });
+    onSnapshot(col.schedule, (snap) => { SCHEDULE = snap.docs.map(withId); if (firestoreReady) renderAll(); });
+    onSnapshot(col.log, (snap) => { log = snap.docs.map(withId); if (firestoreReady) renderAll(); });
+  }
 
   function personById(id) { return TEAM.find(p => p.id === id); }
 
@@ -565,6 +584,7 @@
     avatarBtn.textContent = u === "kabir" ? "K" : "U";
     gate.style.display = "none";
     renderAll();
+    if (firestoreReady) registerPush();
   }
   document.querySelectorAll(".gate-btn").forEach(btn => {
     btn.addEventListener("click", () => setUser(btn.dataset.user));
@@ -657,8 +677,7 @@
     peopleEl.querySelectorAll("[data-edit-team]").forEach(btn => btn.addEventListener("click", () => openTeamForm(btn.dataset.editTeam)));
     peopleEl.querySelectorAll("[data-del-team]").forEach(btn => btn.addEventListener("click", () => {
       armDelete(btn, () => {
-        TEAM = TEAM.filter(p => p.id !== btn.dataset.delTeam);
-        saveTeam(); renderAll();
+        deleteDoc(doc(col.team, btn.dataset.delTeam)).catch(e => console.error(e));
       });
     }));
 
@@ -726,15 +745,13 @@
     document.querySelectorAll("[data-edit-meeting]").forEach(btn => btn.addEventListener("click", () => openMeetingForm(btn.dataset.editMeeting)));
     document.querySelectorAll("[data-del-meeting]").forEach(btn => btn.addEventListener("click", () => {
       armDelete(btn, () => {
-        MEETINGS = MEETINGS.filter(m => m.id !== btn.dataset.delMeeting);
-        saveMeetings(); renderAll();
+        deleteDoc(doc(col.meetings, btn.dataset.delMeeting)).catch(e => console.error(e));
       });
     }));
     document.querySelectorAll("[data-edit-check]").forEach(btn => btn.addEventListener("click", () => openCheckForm(btn.dataset.editCheck)));
     document.querySelectorAll("[data-del-check]").forEach(btn => btn.addEventListener("click", () => {
       armDelete(btn, () => {
-        SCHEDULE = SCHEDULE.filter(s => s.id !== btn.dataset.delCheck);
-        saveSchedule(); renderAll();
+        deleteDoc(doc(col.schedule, btn.dataset.delCheck)).catch(e => console.error(e));
       });
     }));
   }
@@ -747,8 +764,7 @@
     teamCardsEl.querySelectorAll("[data-edit-team]").forEach(btn => btn.addEventListener("click", () => openTeamForm(btn.dataset.editTeam)));
     teamCardsEl.querySelectorAll("[data-del-team]").forEach(btn => btn.addEventListener("click", () => {
       armDelete(btn, () => {
-        TEAM = TEAM.filter(p => p.id !== btn.dataset.delTeam);
-        saveTeam(); renderAll();
+        deleteDoc(doc(col.team, btn.dataset.delTeam)).catch(e => console.error(e));
       });
     }));
   }
@@ -777,22 +793,24 @@
     }
     nameEl.focus();
   }
-  document.getElementById("teamSaveBtn").addEventListener("click", () => {
+  document.getElementById("teamSaveBtn").addEventListener("click", async () => {
     const editId = document.getElementById("teamEditId").value;
     const name = document.getElementById("teamName").value.trim();
     if (!name) { document.getElementById("teamName").focus(); return; }
     const owner = document.getElementById("teamOwner").value;
     const companies = [...teamModal.querySelectorAll('#teamCompanies input:checked')].map(b => b.value);
     const roles = document.getElementById("teamRoles").value.split("\n").map(r => r.trim()).filter(Boolean);
-    if (editId) {
-      const p = personById(editId);
-      Object.assign(p, { name, owner, companies, roles });
-    } else {
-      TEAM.push({ id: cryptoId(), name, owner, companies, roles });
+    const data = { name, owner, companies, roles };
+    try {
+      if (editId) {
+        await updateDoc(doc(col.team, editId), data);
+      } else {
+        await setDoc(doc(col.team, cryptoId()), data);
+      }
+      closeTeamForm();
+    } catch (e) {
+      console.error("Save team member failed:", e);
     }
-    saveTeam();
-    closeTeamForm();
-    renderAll();
   });
 
   // ---- Meeting form ----
@@ -813,20 +831,18 @@
     }
     document.getElementById("meetingTitle").focus();
   }
-  document.getElementById("meetingSaveBtn").addEventListener("click", () => {
+  document.getElementById("meetingSaveBtn").addEventListener("click", async () => {
     const editId = document.getElementById("meetingEditId").value;
     const day = document.getElementById("meetingDay").value;
     const time = document.getElementById("meetingTime").value.trim();
     const title = document.getElementById("meetingTitle").value.trim();
     if (!title || !time) return;
-    if (editId) {
-      Object.assign(MEETINGS.find(m => m.id === editId), { day, time, title });
-    } else {
-      MEETINGS.push({ id: cryptoId(), day, time, title });
-    }
-    saveMeetings();
-    meetingForm.classList.add("hidden");
-    renderAll();
+    const data = { day, time, title };
+    try {
+      if (editId) { await updateDoc(doc(col.meetings, editId), data); }
+      else { await setDoc(doc(col.meetings, cryptoId()), data); }
+      meetingForm.classList.add("hidden");
+    } catch (e) { console.error("Save meeting failed:", e); }
   });
 
   // ---- Check-in form ----
@@ -862,21 +878,19 @@
     }
     document.getElementById("checkFocus").focus();
   }
-  document.getElementById("checkSaveBtn").addEventListener("click", () => {
+  document.getElementById("checkSaveBtn").addEventListener("click", async () => {
     const editId = document.getElementById("checkEditId").value;
     const day = document.getElementById("checkDay").value;
     const person = document.getElementById("checkPerson").value;
     const company = document.getElementById("checkCompany").value;
     const focus = document.getElementById("checkFocus").value.trim();
     if (!focus || !person) return;
-    if (editId) {
-      Object.assign(SCHEDULE.find(s => s.id === editId), { day, person, company, focus });
-    } else {
-      SCHEDULE.push({ id: cryptoId(), day, person, company, focus });
-    }
-    saveSchedule();
-    checkForm.classList.add("hidden");
-    renderAll();
+    const data = { day, person, company, focus };
+    try {
+      if (editId) { await updateDoc(doc(col.schedule, editId), data); }
+      else { await setDoc(doc(col.schedule, cryptoId()), data); }
+      checkForm.classList.add("hidden");
+    } catch (e) { console.error("Save check-in failed:", e); }
   });
 
   function renderLogForm() {
@@ -907,8 +921,7 @@
 
     el.querySelectorAll("[data-del-log]").forEach(btn => btn.addEventListener("click", () => {
       armDelete(btn, () => {
-        log = log.filter(l => l.id !== btn.dataset.delLog);
-        saveLog(); renderAll();
+        deleteDoc(doc(col.log, btn.dataset.delLog)).catch(e => console.error(e));
       });
     }));
 
@@ -916,15 +929,14 @@
       btn.addEventListener("click", () => {
         const item = log.find(l => l.id === btn.dataset.id);
         if (item) {
-          item.status = item.status === "pending" ? "received" : "pending";
-          saveLog();
-          renderAll();
+          updateDoc(doc(col.log, item.id), { status: item.status === "pending" ? "received" : "pending" })
+            .catch(e => console.error("Toggle status failed:", e));
         }
       });
     });
   }
 
-  document.getElementById("logAddBtn").addEventListener("click", () => {
+  document.getElementById("logAddBtn").addEventListener("click", async () => {
     const person = document.getElementById("logPerson").value;
     const focus = document.getElementById("logFocus").value.trim();
     const note = document.getElementById("logNote").value.trim();
@@ -932,15 +944,14 @@
     const p = personById(person);
     const company = p ? p.companies[0] : "";
     const now = new Date();
-    log.push({
-      id: cryptoId(),
-      date: now.toISOString().slice(5,10),
-      person, company, focus, note, status: "pending",
-    });
-    saveLog();
-    document.getElementById("logFocus").value = "";
-    document.getElementById("logNote").value = "";
-    renderAll();
+    try {
+      await setDoc(doc(col.log, cryptoId()), {
+        date: now.toISOString().slice(5,10),
+        person, company, focus, note, status: "pending",
+      });
+      document.getElementById("logFocus").value = "";
+      document.getElementById("logNote").value = "";
+    } catch (e) { console.error("Log check-in failed:", e); }
   });
 
   function renderAll() {
@@ -954,14 +965,54 @@
     renderLogHistory();
   }
 
-  renderAll();
+  // ---- Push notifications ----
+  let swRegistration = null;
+  async function registerPush() {
+    if (!currentUser) return;
+    if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
+    try {
+      const supported = await messagingSupported().catch(() => false);
+      if (!supported) return;
+      if (Notification.permission === "denied") return;
+      if (Notification.permission !== "granted") {
+        if (localStorage.getItem(KEYS.notifPrompted) === "true") return; // don't nag every load
+        localStorage.setItem(KEYS.notifPrompted, "true");
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") return;
+      }
+      const messaging = getMessaging(fbApp);
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
+      if (token) {
+        await setDoc(doc(col.devices, token), {
+          owner: currentUser, token, updatedAt: serverTimestamp(), userAgent: navigator.userAgent,
+        });
+      }
+    } catch (e) {
+      console.warn("Push registration skipped:", e && e.message);
+    }
+  }
 
-  // Service worker registration (safe no-op until deployed with a real sw.js on HTTPS)
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  // ---- App startup ----
+  async function startApp() {
+    if ("serviceWorker" in navigator) {
+      try { swRegistration = await navigator.serviceWorker.register("./service-worker.js"); } catch (e) {}
+    }
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.error("Firebase sign-in failed:", e);
+    }
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+      try { await seedIfEmpty(); } catch (e) { console.warn("Seed check failed:", e); }
+      startListeners();
+      firestoreReady = true;
+      renderAll();
+      if (currentUser) registerPush();
     });
   }
+
+  startApp();
 })();
 </script>
 </body>
