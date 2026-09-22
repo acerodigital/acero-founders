@@ -1,7 +1,7 @@
 // Acero Founders — service worker
 // Handles: offline shell caching + background push notifications (Firebase Cloud Messaging)
 
-const CACHE_NAME = "acero-founders-v3";
+const CACHE_NAME = "acero-founders-v4";
 const CORE_ASSETS = ["./manifest.json"];
 
 self.addEventListener("install", (event) => {

@@ -1092,15 +1092,17 @@ const auth = getAuth(fbApp);
     if (!currentUser) return;
     if (!("serviceWorker" in navigator) || !("Notification" in window)) { showDebugToast("Push setup: this browser doesn't support service workers/notifications.", true); return; }
     try {
-      const supported = await messagingSupported().catch(() => false);
-      if (!supported) { showDebugToast("Push setup: Firebase Messaging reports unsupported in this browser.", true); return; }
-      if (Notification.permission === "denied") { showDebugToast("Push setup: notification permission was denied.", true); return; }
+      if (Notification.permission === "denied") { showDebugToast("Push setup: notification permission was denied. Check the site settings (tap the icon left of the address bar) to reset it.", true); return; }
       if (Notification.permission !== "granted") {
         if (localStorage.getItem(KEYS.notifPrompted) === "true") return; // don't nag every load
         localStorage.setItem(KEYS.notifPrompted, "true");
+        // This must be the first await in the whole chain — Chrome can silently skip
+        // showing the popup if too much async work happens between the tap and this call.
         const perm = await Notification.requestPermission();
         if (perm !== "granted") { showDebugToast("Push setup: permission not granted (" + perm + ").", true); return; }
       }
+      const supported = await messagingSupported().catch(() => false);
+      if (!supported) { showDebugToast("Push setup: Firebase Messaging reports unsupported in this browser.", true); return; }
       const messaging = getMessaging(fbApp);
       onMessage(messaging, (payload) => {
         const title = (payload.notification && payload.notification.title) || "Acero Founders";
