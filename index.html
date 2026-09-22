@@ -504,7 +504,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc,
+  initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
+  collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc,
   getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -514,7 +515,19 @@ import { firebaseConfig } from "./firebase-config.js";
 const VAPID_KEY = "BLaQQ14vMwruSg_byZkzy--jQz8kfy5WhuwLevqamRERrasstDeK7eh6Gu5FqRy84LxJ0Guba60X9iMaZKGNzs8";
 
 const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+// Persistent local cache: on reload, Firestore serves last-known data instantly
+// from this device's own cache, then updates quietly once fresh data arrives —
+// instead of showing an empty screen while waiting on the network round-trip.
+// Falls back to the plain (non-cached) client if persistence init fails for any reason.
+let db;
+try {
+  db = initializeFirestore(fbApp, {
+    localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+  });
+} catch (e) {
+  console.warn("Persistent Firestore cache unavailable, falling back:", e && e.message);
+  db = getFirestore(fbApp);
+}
 const auth = getAuth(fbApp);
 
 (function () {

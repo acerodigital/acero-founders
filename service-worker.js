@@ -1,8 +1,8 @@
 // Acero Founders — service worker
 // Handles: offline shell caching + background push notifications (Firebase Cloud Messaging)
 
-const CACHE_NAME = "acero-founders-v2";
-const CORE_ASSETS = ["./", "./index.html", "./manifest.json"];
+const CACHE_NAME = "acero-founders-v3";
+const CORE_ASSETS = ["./manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,9 +21,25 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
+  const isPage = event.request.mode === "navigate" || event.request.destination === "document";
+  if (isPage) {
+    // Network-first for the app itself: always get the latest version when online,
+    // so a plain refresh shows updates immediately. Falls back to cache only if offline.
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    // Cache-first for static assets (icons, manifest) — fine for these since they rarely change.
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+  }
 });
 
 // --- Firebase Cloud Messaging (background push) ---
